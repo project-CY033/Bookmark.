@@ -1,0 +1,458 @@
+<html><head><base href="https://webdesktop.io" />
+<title>WebDesktop - Your Web Favorites as a Desktop</title>
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: url('https://images.unsplash.com/photo-1579546929518-9e396f3cc809') no-repeat center center fixed;
+    background-size: cover;
+    overflow: hidden;
+  }
+  #desktop {
+    width: 100%;
+    height: calc(100% - 50px);
+    position: relative;
+    overflow: auto;
+  }
+  .icon {
+    width: 60px;
+    height: 60px;
+    position: absolute;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+  .icon:hover {
+    transform: scale(1.1);
+  }
+  .icon img {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 3px;
+    pointer-events: none;
+  }
+  .icon span {
+    font-size: 10px;
+    color: white;
+    text-shadow: 1px 1px 2px black;
+    word-wrap: break-word;
+    max-width: 60px;
+    display: block;
+    pointer-events: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .category-container {
+    position: absolute;
+    width: 120px;
+    cursor: move;
+    transition: all 0.5s ease;
+  }
+  .category-title {
+    width: 100%;
+    text-align: center;
+    color: white;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px black;
+    padding: 5px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+  }
+  .category {
+    width: 120px;
+    height: 160px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .category-content {
+    flex-grow: 1;
+    padding: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: space-around;
+    overflow-y: auto;
+  }
+  .category.expanded {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    height: 80%;
+    max-width: 800px;
+    max-height: 600px;
+    background-color: rgba(255, 255, 255, 0.95);
+    z-index: 1001;
+  }
+  .category.expanded .category-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    align-items: start;
+    justify-items: center;
+  }
+  .category.expanded .icon {
+    position: relative;
+    left: auto !important;
+    top: auto !important;
+  }
+  .category.expanded .icon span {
+    color: #333;
+    text-shadow: none;
+  }
+  #taskbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background-color: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    z-index: 1000;
+  }
+  .taskbar-button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    margin-right: 10px;
+    cursor: pointer;
+    border-radius: 20px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+  }
+  .taskbar-button:hover {
+    background-color: #45a049;
+    transform: translateY(-2px);
+  }
+  #modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    z-index: 1001;
+  }
+  #modal input, #modal button, #modal select {
+    display: block;
+    margin: 15px 0;
+    width: 100%;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    font-size: 14px;
+  }
+  #modal button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  #modal button:hover {
+    background-color: #45a049;
+  }
+  .close-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #333;
+  }
+  #error-message {
+    display: none;
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #f44336;
+    color: white;
+    padding: 15px;
+    border-radius: 5px;
+    z-index: 2000;
+  }
+</style>
+</head>
+<body>
+<div id="desktop"></div>
+
+<div id="taskbar">
+  <button class="taskbar-button" id="add-favorite">Add Favorite</button>
+  <button class="taskbar-button" id="create-category">Create Category</button>
+</div>
+
+<div id="modal">
+  <input type="text" id="name-input" placeholder="Name">
+  <input type="text" id="url-input" placeholder="URL">
+  <select id="category-select">
+    <option value="">Select Category</option>
+  </select>
+  <button id="save-button">Save</button>
+  <button id="cancel-button">Cancel</button>
+</div>
+
+<div id="error-message"></div>
+
+<script>
+const desktop = document.getElementById('desktop');
+const modal = document.getElementById('modal');
+const nameInput = document.getElementById('name-input');
+const urlInput = document.getElementById('url-input');
+const categorySelect = document.getElementById('category-select');
+const saveButton = document.getElementById('save-button');
+const cancelButton = document.getElementById('cancel-button');
+const addFavoriteButton = document.getElementById('add-favorite');
+const createCategoryButton = document.getElementById('create-category');
+const errorMessage = document.getElementById('error-message');
+
+let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+let categories = JSON.parse(localStorage.getItem('categories')) || [];
+
+function saveFavorites() {
+  localStorage.setItem('favorites', JSON.stringify(favorites));
+}
+
+function saveCategories() {
+  localStorage.setItem('categories', JSON.stringify(categories));
+}
+
+function showError(message) {
+  errorMessage.textContent = message;
+  errorMessage.style.display = 'block';
+  setTimeout(() => {
+    errorMessage.style.display = 'none';
+  }, 3000);
+}
+
+function createIcon(item, small = false) {
+  const icon = document.createElement('div');
+  icon.className = 'icon';
+  icon.dataset.id = item.id;
+  icon.dataset.url = item.url;
+  
+  const img = document.createElement('img');
+  img.src = `https://www.google.com/s2/favicons?domain=${item.url}&sz=64`;
+  icon.appendChild(img);
+  
+  const span = document.createElement('span');
+  span.textContent = item.name;
+  icon.appendChild(span);
+  
+  icon.addEventListener('click', (e) => {
+    e.preventDefault();
+    try {
+      window.open(item.url, '_blank');
+    } catch (error) {
+      showError(`Failed to open URL: ${error.message}`);
+    }
+  });
+  
+  if (!small) {
+    makeDraggable(icon);
+  }
+  
+  return icon;
+}
+
+function createCategory(category) {
+  const categoryContainer = document.createElement('div');
+  categoryContainer.className = 'category-container';
+  categoryContainer.dataset.category = category;
+
+  const categoryDiv = document.createElement('div');
+  categoryDiv.className = 'category';
+
+  const title = document.createElement('div');
+  title.className = 'category-title';
+  title.textContent = category;
+  categoryDiv.appendChild(title);
+
+  const content = document.createElement('div');
+  content.className = 'category-content';
+  
+  const categoryFavorites = favorites.filter(fav => fav.category === category);
+  categoryFavorites.forEach(fav => {
+    content.appendChild(createIcon(fav, true));
+  });
+  
+  categoryDiv.appendChild(content);
+  categoryContainer.appendChild(categoryDiv);
+
+  categoryContainer.addEventListener('click', (e) => {
+    if (e.target === categoryContainer || e.target === title || e.target === categoryDiv) {
+      toggleCategoryExpansion(categoryContainer);
+    }
+  });
+  
+  makeDraggable(categoryContainer);
+  
+  return categoryContainer;
+}
+
+function toggleCategoryExpansion(categoryContainer) {
+  const category = categoryContainer.querySelector('.category');
+  const isExpanded = category.classList.contains('expanded');
+  
+  if (isExpanded) {
+    category.classList.remove('expanded');
+    const closeButton = category.querySelector('.close-button');
+    if (closeButton) {
+      closeButton.remove();
+    }
+  } else {
+    category.classList.add('expanded');
+    
+    // Clear existing content and repopulate
+    const content = category.querySelector('.category-content');
+    content.innerHTML = '';
+    const categoryName = categoryContainer.dataset.category;
+    const categoryFavorites = favorites.filter(fav => fav.category === categoryName);
+    categoryFavorites.forEach(fav => {
+      content.appendChild(createIcon(fav, false));
+    });
+    
+    const closeButton = document.createElement('button');
+    closeButton.textContent = '×';
+    closeButton.className = 'close-button';
+    closeButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleCategoryExpansion(categoryContainer);
+    });
+    category.appendChild(closeButton);
+  }
+}
+
+function renderDesktop() {
+  desktop.innerHTML = '';
+  
+  categories.forEach((category, index) => {
+    const categoryDiv = createCategory(category);
+    categoryDiv.style.left = `${(index % 5) * 140 + 20}px`;
+    categoryDiv.style.top = `${Math.floor(index / 5) * 210 + 20}px`;
+    desktop.appendChild(categoryDiv);
+  });
+  
+  favorites.filter(fav => !fav.category).forEach((fav, index) => {
+    const icon = createIcon(fav);
+    icon.style.left = `${(index % 10) * 70 + 20}px`;
+    icon.style.top = `${Math.floor(index / 10) * 80 + (Math.ceil(categories.length / 5) * 210 + 30)}px`;
+    desktop.appendChild(icon);
+  });
+}
+
+function updateCategorySelect() {
+  categorySelect.innerHTML = '<option value="">Select Category</option>';
+  categories.forEach(category => {
+    const option = document.createElement('option');
+    option.value = category;
+    option.textContent = category;
+    categorySelect.appendChild(option);
+  });
+}
+
+function makeDraggable(element) {
+  let isDragging = false;
+  let startX, startY;
+
+  element.addEventListener('mousedown', startDragging);
+  document.addEventListener('mousemove', drag);
+  document.addEventListener('mouseup', stopDragging);
+
+  function startDragging(e) {
+    isDragging = true;
+    startX = e.clientX - element.offsetLeft;
+    startY = e.clientY - element.offsetTop;
+    element.style.zIndex = 1000;
+  }
+
+  function drag(e) {
+    if (!isDragging) return;
+    e.preventDefault();
+    let left = e.clientX - startX;
+    let top = e.clientY - startY;
+    element.style.left = `${left}px`;
+    element.style.top = `${top}px`;
+  }
+
+  function stopDragging() {
+    if (!isDragging) return;
+    isDragging = false;
+    element.style.zIndex = '';
+    // Save the new position
+    if (element.classList.contains('icon')) {
+      const favId = element.dataset.id;
+      const fav = favorites.find(f => f.id === favId);
+      if (fav) {
+        fav.left = element.style.left;
+        fav.top = element.style.top;
+        saveFavorites();
+      }
+    } else if (element.classList.contains('category-container')) {
+      const categoryName = element.dataset.category;
+      const category = categories.find(c => c === categoryName);
+      if (category) {
+        category.left = element.style.left;
+        category.top = element.style.top;
+        saveCategories();
+      }
+    }
+  }
+}
+
+addFavoriteButton.addEventListener('click', () => {
+  modal.style.display = 'block';
+  nameInput.value = '';
+  urlInput.value = '';
+  categorySelect.value = '';
+});
+
+createCategoryButton.addEventListener('click', () => {
+  const categoryName = prompt('Enter category name:');
+  if (categoryName) {
+    categories.push(categoryName);
+    saveCategories();
+    updateCategorySelect();
+    renderDesktop();
+  }
+});
+
+saveButton.addEventListener('click', () => {
+  const name = nameInput.value.trim();
+  const url = urlInput.value.trim();
+  const category = categorySelect.value;
+  if (name && url) {
+    const id = Date.now().toString();
+    favorites.push({ id, name, url, category });
+    saveFavorites();
+    renderDesktop();
+    modal.style.display = 'none';
+  }
+});
+
+cancelButton.addEventListener('click', () => {
+  modal.style.display = 'none';
+});
+
+updateCategorySelect();
+renderDesktop();
+</script>
+</body></html>
